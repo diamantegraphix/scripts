@@ -24,6 +24,10 @@ if [ ! -f "$logfile" ]; then
   touch $logfile
 fi
 
+
+# Get list of sites to backup
+
+
 echo ""
 echo "Backups started at $(date +'%Y-%m-%d %H:%M:%S')" #>> "$logfile"
 echo "Backups directory: $backups_dir" #>> "$logfile"
@@ -63,6 +67,9 @@ if [ -n "$path" ]; then
   tar -zcf "$zipfile" $site
   popd
   echo "Backup of directory $path/$site saved as $zipfile" #>> "$logfile"
+
+
+
 
   # delete all but 2 most recent file backups
   ls -tp $backups_dir/$site/$site*.tar.gz | tail -n +3 | xargs -I {} rm {}
