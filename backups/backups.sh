@@ -2,19 +2,23 @@
 # site on same server
 # backup saved on same server
 
-
-server_root="/var/www/html"
-backups_dir="$server_root/backups"
-logfile="$backups_dir/backup_log.txt"
+# File listing sites to backup
+# format - [site],[full path to parent folder of site]
 sites="sites.txt"
 
-#server_root="/home1/diamanv1"
-domain_root="$server_root/public_html"
+server_root="/home1/diamanv1"
+
+# Full path to directory where backups should be saved
+backups_dir="$server_root/backups"
+
+# Full path and name of log file
+logfile="$backups_dir/backup_log.txt"
 
 
 now="$(date +'%d_%m_%Y_%H_%M_%S')"
 today="$(date +'_%Y-%m-%d')"
 
+# If backups directorys does not exist, create it
 if [ ! -d "$backups_dir" ]; then
   mkdir $backups_dir
   if [ $? -ne 0 ] ; then
@@ -23,14 +27,13 @@ if [ ! -d "$backups_dir" ]; then
   fi
 fi
 
+# If logfile does not exist, create it
 if [ ! -f "$logfile" ]; then
   touch $logfile
 fi
 
 echo ""
 echo "Backups started at $(date +'%Y-%m-%d %H:%M:%S')" #>> "$logfile"
-echo "Backups directory: $backups_dir" #>> "$logfile"
-
 
 
 while IFS="," read site path; do 
@@ -41,7 +44,7 @@ while IFS="," read site path; do
 
   echo "Site: $site" #>> "$logfile"
 
-  # Create backups directory if it does not exist
+  # If folder for site in backups directory does not exist, create it
   if [ ! -d "$backups_dir/$site" ]; then
     mkdir "$backups_dir/$site"
   fi
@@ -54,7 +57,9 @@ while IFS="," read site path; do
   echo "Backup of directory $path/$site saved as $zipfile" #>> "$logfile"
 
   # delete all but 2 most recent file backups
-  ls -tp $backups_dir/$site/$site*.tar.gz | tail -n +3 | xargs -I {} rm {}
+  echo $(find "$backups_dir/$site" -maxdepth 1 -type f -name "$site*.tar.gz")
+
+  #ls -tp $backups_dir/$site/$site*.tar.gz | tail -n +3 | xargs -I {} rm {}
 
   # Check if site is wordpress site
   if [ -f "$path/$site/index.php" ]; then
