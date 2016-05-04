@@ -19,3 +19,5 @@ error deleting old tar backups - log error
 error dumping database - log error
 
 error deleting old sql backups - log error
+
+log file does not exist - create log file, log message
