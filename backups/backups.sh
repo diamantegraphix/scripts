@@ -2,8 +2,6 @@
 # site on same server
 # backup saved on same server
 
-
-
 # File structure root
 server_home="/var/www/html"
 
@@ -11,48 +9,43 @@ server_home="/var/www/html"
 backups_dir="$server_home/backups"
 
 # Full path and name of log file
-logfile="$backups_dir/backup.log"
+logfile="$backups_dir/backups$(date +'_%Y').log"
 
 # Full path of file with list of sites to backup; format = [site],[full path to parent folder of site]
-sites="x$backups_dir/sites.txt"
+sites="$backups_dir/sites.txt"
 
-# Number if backups to save
+# Number of backups to save
 i=2
-
-today="$(date +'_%Y-%m-%d')"
-
-# Create temporary log file
-tmplog="$server_home/tmplog$(date +'%d%m%Y%H%M%S').log"
-touch $tmplog
 
 # Get error messages from all commands in a pipeline
 set -o pipefail
 
 # Log time backups started
-echo "##### Backups started at $(date +'%Y-%m-%d %H:%M:%S') #####" >> "$tmplog"
+hold="##### Backups started at $(date +'%Y-%m-%d %H:%M:%S') #####"
 
 # If backups directorys does not exist, create it
 if [ ! -d "$backups_dir" ]; then
-  mkdir "$backups_dir" 2>>"$tmplog"
-  if [ $? == 0 ] ; then
-    echo "Backups directory $backups_dir/ created" >> "$tmplog"
+  error=$(mkdir "$backups_dir")
+  if [ $? == 0 ]; then
+    hold=$hold\n"Backups directory $backups_dir/ created" >> "$templog"
   else
-    #echo "Error: could not create backups directory" >> "$tmplog"
-    echo "Backups failed at $(date +'%d/%m/%Y %H:%M:%S') " >> "$tmplog"
-    #cat $tmplog | mail -s "Backups failed: No backup directory" "bethany@diamantegraphix.com"
-    rm $tmplog
+    error="$error\nBackups failed at $(date +'%d/%m/%Y %H:%M:%S')"
+    echo -e $error ### | mail -s "Backups failed: No backup directory" "bethany@diamantegraphix.com"
+    rm $templog
     exit 0
   fi
 fi
 
-# If logfile does not exist, create it
-if [ ! -f "$logfile" ]; then
-  touch "$logfile" 2>>"$tmplog"
-  if [ $? != 0 ]; then 
-    errors=true
-    echo "Unable to create log file" >> "$tmplog" 
-  fi
-fi
+today="$(date +'_%Y-%m-%d')"
+
+# Create temporary log file
+templog="$backups_dir/temp$(date +'%d%m%Y%H%M%S').log"
+touch "$templog"
+if [ $? == 0 ]; then
+  echo -e $hold >> "$templog"
+else
+  echo "Backups $(date +'%Y-%m-%d'): Unable to create log file at $templog" ###| mail -s "Backups error: No log file" "bethany@diamantegraphix.com"
+fi 
 
 # Add 1 to number to backups to save, starts deleting on line following number to save
 i=$(($i+1))
@@ -65,24 +58,26 @@ while IFS="," read site path; do
     path="${path%?}"
   fi
 
-  echo >> "$tmplog"
-  echo "# $site #" >> "$tmplog"
+  # Log site name
+  echo >> "$templog"
+  echo "# $site #" >> "$templog"
 
   # Check if site directory exists
   if [ -d "$path/$site" ]; then
-    echo "Filesyetem located: $path" >> "$tmplog" 
+    echo "Filesyetem located: $path" >> "$templog" 
   else
-    echo "$site backup not completed; $path/$site not found" >> "$tmplog"
+    echo "$site backup not completed; $path/$site not found" >> "$templog"
     errors=true
     continue
   fi
 
   # If backups folder for site does not exist, create it
   if [ ! -d "$backups_dir/$site" ]; then
-    mkdir "$backups_dir/$site" 2>>"$tmplog"
+    mkdir "$backups_dir/$site" 2>>"$templog"
     if [ $? == 0 ]; then 
-      echo "$backups_dir/$site directory created" >> "$tmplog"
+      echo "$backups_dir/$site directory created" >> "$templog"
     else
+      echo "Filesystem backup: FAILED; Unable to create directory $site/ in $backups_dir/" >> "$templog"  
       errors=true
       continue
     fi    
@@ -93,13 +88,13 @@ while IFS="," read site path; do
 
   # Create gzipped tar archive of filesystem
   zipfile="$backups_dir/$site/$site$today$(date +'%d%m%Y%H%M%S').tar.gz"
-  tar -zcf "$zipfile" $site 2>>"$tmplog"
+  tar -zcf "$zipfile" $site 2>>"$templog"
 
   # Log results of directorty compression
   if [ $? == 0 ]; then
-    echo "Filesystem backup created: $zipfile" >> "$tmplog"    
+    echo "Filesystem backup created: $zipfile" >> "$templog"    
   else
-    echo "Filesystem backup: FAILED" >> "$tmplog"   
+    echo "Filesystem backup: FAILED" >> "$templog"   
     errors=true
     continue
   fi
@@ -108,14 +103,9 @@ while IFS="," read site path; do
   popd 2>&1>/dev/null 
 
   # Delete all but 2 most recent file backups
-  #find $backups_dir/$site -maxdepth 1 -name "$site*\.tar\.gz" 2>>"$tmplog" | sort -r | tail -n +$i | xargs -I {} rm {} 2>>"$tmplog"
-  #^doesn't work. Sorts by file name, not last modified
-
-  ls -tp $backups_dir/$site/$site*.tar.gz 2>>"$tmplog" | tail -n +$i | xargs -I {} rm {} 2>>"$tmplog" # NOTE: * wildcard can't be in quotes
-
-  # If error deleting old backups, log error
+  ls -tp $backups_dir/$site/$site*.tar.gz 2>>"$templog" | tail -n +$i | xargs -I {} rm {} 2>>"$templog"
   if [ $? != 0 ]; then
-    echo "Error deleting outdated tar backups" >> "$tmplog"
+    echo "Error deleting outdated tar backups" >> "$templog"
   fi
 
   # Check if site is wordpress site
@@ -150,68 +140,68 @@ while IFS="," read site path; do
     #mysql_host=$(cut -d "'" -f4 <<< $(grep DB_HOST "$wpconfig"))
 
     # Log name of database
-    echo "Database located: $mysql_name" >> "$tmplog"
+    echo "Database located: $mysql_name" >> "$templog"
 
     # Database dump
     sqlfile="$backups_dir/$site/$site$today$(date +'%d%m%Y%H%M%S').sql.gz"
-    mysqldump --user="$mysql_user" --password="$mysql_pass" --default-character-set=utf8 "$mysql_name" 2>>"$tmplog" | gzip > "$sqlfile" 2>>"$tmplog"
+    mysqldump --user="$mysql_user" --password="$mysql_pass" --default-character-set=utf8 "$mysql_name" 2>>"$templog" | gzip > "$sqlfile" 2>>"$templog"
 
     # Log database dump results
     if [ $? == 0 ]; then
-      echo "Database backup created: $sqlfile" >> "$tmplog"
+      echo "Database backup created: $sqlfile" >> "$templog"
     else
-      echo "Database backup: FAILED" >> "$tmplog"
+      echo "Database backup: FAILED" >> "$templog"
       errors=true
       continue
     fi  
 
     # delete all but 2 most recent database backups
-    #find $backups_dir/$site -maxdepth 1 -name "$site*\.sql\.gz" 2>>"$tmplog" | sort -r | tail -n +3 | xargs -I {} rm {} 2>>"$tmplog"
-    #^doesn't work. Sorts by file name, not last modified
-
-    ls -tp $backups_dir/$site/$site*.sql.gz 2>>"$tmplog" | tail -n +$i | xargs -I {} rm {} 2>>"$tmplog" # NOTE: * wildcard can't be in quotes
-
-    # If error deleting old database dumps, log error
+    ls -tp $backups_dir/$site/$site*.sql.gz 2>>"$templog" | tail -n +$i | xargs -I {} rm {} 2>>"$templog"
     if [ $? != 0 ]; then
-      echo "Error deleting outdated sql backups" >> "$tmplog"
+      echo "Error deleting outdated sql backups" >> "$templog"
     fi
 
   # Log error if config file not found for WordPress site
   else 
-    echo "Config file wp-config.php not found for WordPress site" >> "$tmplog"
+    echo "Config file wp-config.php not found for WordPress site" >> "$templog"
     errors=true
   fi
-done < "$sites" 2>> "$tmplog"
-
+done < "$sites" 2>> "$templog"
 
 # If file with list of sites does not exist, end program and email error message
 if [ $? != 0 ]; then
-  echo "Error: File not found: $sites" >> "$tmplog"
-  echo "# Backups failed at $(date +'%d/%m/%Y %H:%M:%S') #" >> "$tmplog"
-  cat "$tmplog" ###| mail -s "Backups failed: No site list file" "bethany@diamantegraphix.com"
-  cat "$tmplog" >> "$logfile"
-  #rm "$tmplog"
+  echo "Error: File not found: $sites" >> "$templog"
+  echo "# Backups failed at $(date +'%d/%m/%Y %H:%M:%S') #" >> "$templog"
+  cat "$templog" ###| mail -s "Backups failed: No site list file" "bethany@diamantegraphix.com"
+  cat "$templog" >> "$logfile"
+  rm "$templog"
   exit 0
 fi
 
-# If an error occurred, note that in the log
+# If an error occurred, note that in the log and in subject of email notification
 if [ $errors ]; then
-  echo >> "$tmplog"
-  echo "*** ERRORS OCCURRED DURING THIS BACKUP ***" >> "$tmplog"
-  echo >> "$tmplog"
+  echo >> "$templog"
+  echo "*** ERRORS OCCURRED DURING THIS BACKUP ***" >> "$templog"
+  echo >> "$templog"
   subject="ERRORS OCCURRED: Backups complete on $(date +'%Y-%m-%d)"
 else
   subject="Backups complete on $(date +'%Y-%m-%d)"
 fi
 
 # Log time backups were completed
-echo "# Backups completed at $(date +'%Y-%m-%d %H:%M:%S') #" >> "$tmplog"
+echo "# Backups completed at $(date +'%Y-%m-%d %H:%M:%S') #" >> "$templog"
 
-#cat $tmplog | mail -s $subject "bethany@diamantegraphix.com"
+# Email log for current backup
+#cat $templog | mail -s $subject "bethany@diamantegraphix.com"
 
-cat "$tmplog" >> "$logfile"
+# If logfile does not exist, create it
+if [ ! -f "$logfile" ]; then
+  touch "$logfile"
+fi
 
-#rm "$tmplog"
+# Copy temp log to log file
+cat "$templog" >> "$logfile"
+echo >> $logfile
+echo >> $logfile
 
-echo " " >> $logfile
-echo " " >> $logfile
+rm "$templog"
