@@ -1,7 +1,13 @@
 #!/bin/sh
-# site on same server
-# backup saved on same server
+# Name: Backups
+# Backups: Version 0.1.0
+# Date: 05-04-2016
+# Author: BLG
+# Description: Takes backups of websites on the current server - Reads site name and path from external file. Backs up filesystem. Checks for Wordpress database, backs up database if present. Saves backups in directory specified by external config file.
+# Required: backup_config.txt - config file
 
+
+## TODO put these in a separate config file
 # File structure root
 server_home="/var/www/html"
 
@@ -16,9 +22,9 @@ sites="$backups_dir/sites.txt"
 
 # Number of backups to save
 i=2
+## END OF CONFIG FILE
 
-# Get error messages from all commands in a pipeline
-set -o pipefail
+
 
 # Log time backups started
 hold="##### Backups started at $(date +'%Y-%m-%d %H:%M:%S') #####"
@@ -49,6 +55,9 @@ fi
 
 # Add 1 to number to backups to save, starts deleting on line following number to save
 i=$(($i+1))
+
+# Get error messages from all commands in a pipeline
+set -o pipefail
 
 # Get sites name and path (parent of site directory) from file
 while IFS="," read site path; do 
@@ -205,3 +214,4 @@ echo >> $logfile
 echo >> $logfile
 
 rm "$templog"
+
