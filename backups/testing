@@ -1,0 +1,21 @@
+Need to test:
+
+backup directory does not exist - create backup directory, log message
+backup directory does not exist, unable to create backup directory - email error
+
+unable to create temp log file - email error
+
+sites file does not exist, email error 
+
+site not found at path - log error
+
+backups folder for site does not exist - create folder, log message
+backups folder for site does not exist, unable to create folder - log error
+
+unable to create tar file - log error
+
+error deleting old tar backups - log error
+
+error dumping database - log error
+
+error deleting old sql backups - log error
