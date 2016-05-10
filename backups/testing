@@ -24,7 +24,6 @@ error deleting old tar backups - log error
 
 error deleting old sql backups - log error
 
-
 [ok]test automated tar backups against manual backups
 Tool manual backup of directory, compared contents to automated backup
 zdiff /home1/diamanv1/web_server/greasydmobileautorepair.tar.gz /home1/diamanv1/backupstest/greasydmobileautorepair/greasydmobileautorepair_2016-05-0606052016080008.tar.gz
