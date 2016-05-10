@@ -1,0 +1,6 @@
+juzsolutions,/home1/diamanv1/public_html/client-hosting/,
+blog,/home1/diamanv1/public_html/client-hosting/juzsolutions/,juzsolutions-blog
+royaltreatmentpetcare,/home1/diamanv1/public_html/client-hosting/,
+thebetterscale,/home1/diamanv1/public_html/personal-sites/,
+torreslandscapeva,/home1/diamanv1/public_html/client-hosting/,
+,
