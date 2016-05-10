@@ -1,15 +1,16 @@
 Need to test:
 
-backup directory does not exist - create backup directory, log message
-backup directory does not exist, unable to create backup directory - email error
+[ok]backup directory does not exist - create backup directory, log message
+[ok]backup directory does not exist, unable to create backup directory - email error
 
-unable to create temp log file - email error
+[ok]log file does not exist - create log file, log message
+[ok]unable to create temp log file - email error
 
-sites file does not exist, email error 
+[ok]sites file does not exist, email error 
 
 site not found at path - log error
 
-backups folder for site does not exist - create folder, log message
+[ok]backups folder for site does not exist - create folder, log message
 backups folder for site does not exist, unable to create folder - log error
 
 unable to create tar file - log error
@@ -20,4 +21,15 @@ error dumping database - log error
 
 error deleting old sql backups - log error
 
-log file does not exist - create log file, log message
+
+[ok]test automated tar backups against manual backups
+Tool manual backup of directory, compared contents to automated backup
+zdiff /home1/diamanv1/web_server/greasydmobileautorepair.tar.gz /home1/diamanv1/backupstest/greasydmobileautorepair/greasydmobileautorepair_2016-05-0606052016080008.tar.gz
+zdiff /home1/diamanv1/web_server/juzsolutions.tar.gz /home1/diamanv1/backupstest/juzsolutions/juzsolutions_2016-05-0606052016080008.tar.gz
+zdiff /home1/diamanv1/web_server/royaltreatmentpetcare.tar.gz /home1/diamanv1/backupstest/royaltreatmentpetcare/royaltreatmentpetcare_2016-05-0606052016080012.tar.gz
+zdiff /home1/diamanv1/web_server/torreslandscapeva.tar.gz /home1/diamanv1/backupstest/torreslandscapeva/torreslandscapeva_2016-05-0606052016080057.tar.gz
+
+[ok]test automated sql backups against manual backups
+Took manual database dump, imported automated dump into temp database and took manual dump of that to duplicate header on sql file, unzipped files and compared contents
+diff /home1/diamanv1/web_server/royaltreatmentpetcare.sql.gz /home1/diamanv1/backupstest/royaltreatmentpetcare/royaltreatmentpetcare_2016-05-0606052016080017.sql.gz
+diff /home1/diamanv1/web_server/torreslandscapeva.sql.gz /home1/diamanv1/backupstest/torreslandscapeva/torreslandscapeva_2016-05-0606052016080139.sql.gz
