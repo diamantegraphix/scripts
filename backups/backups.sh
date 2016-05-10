@@ -1,6 +1,6 @@
 #!/bin/sh
 # Name: Backups
-# Backups: Version 0.1.0
+# Backups: Version 1.0.0
 # Date: 05-04-2016
 # Author: BLG
 # Description: Takes backups of websites on the current server - Reads site name and path from external file. Backs up filesystem. Checks for Wordpress database, backs up database if present. Saves backups in directory specified by external config file.
