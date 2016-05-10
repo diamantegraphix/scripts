@@ -4,54 +4,86 @@
 # Date: 05-04-2016
 # Author: BLG
 # Description: Takes backups of websites on the current server - Reads site name and path from external file. Backs up filesystem. Checks for Wordpress database, backs up database if present. Saves backups in directory specified by external config file.
-# Required: backup_config.txt - config file
+# Required: backup_config.txt - config file, backups_sites.txt - list of sites to backup
 
-
-## TODO put these in a separate config file
+### CONFIG FILE # TODO put these in a separate config file
 # File structure root
-server_home="/var/www/html"
+server_home="/home/diamanv1"
 
 # Backups directory, relative to server home
 backups_dir="$server_home/backups"
 
-# Full path and name of log file
-logfile="$backups_dir/backups$(date +'_%Y').log"
+# Log location
+log_dir="logs"
 
 # Full path of file with list of sites to backup; format = [site],[full path to parent folder of site]
-sites="$backups_dir/sites.txt"
+sites="$server_home/scripts/backups_sites.txt"
 
 # Number of backups to save
 i=2
+
+# Email to send reports
+email="bethany@diamantegraphix.com"
+
 ## END OF CONFIG FILE
 
 
 
 # Log time backups started
 hold="##### Backups started at $(date +'%Y-%m-%d %H:%M:%S') #####"
+hold="$hold\nBackup location: $backups_dir/"
 
-# If backups directorys does not exist, create it
+# If file with list of sites does not exist, end program and email error message
+if [ ! -f "$sites" ]; then
+  hold="$hold\n\nError: File not found: $sites"
+  hold="$hold\n\n# Backups failed at $(date +'%d/%m/%Y %H:%M:%S') #"
+  echo -e "$hold" | mail -s "Backups Failed on $(date +'%Y-%m-%d'): No Site List File" -S from="diamanv1_backups" "$email"
+  exit 0
+fi
+
+# If backups directory does not exist, create it
 if [ ! -d "$backups_dir" ]; then
-  error=$(mkdir "$backups_dir")
+  error=$(mkdir "$backups_dir" 2>&1)
   if [ $? == 0 ]; then
-    hold=$hold\n"Backups directory $backups_dir/ created" >> "$templog"
+    hold="$hold\nBackups directory $backups_dir/ created"
   else
-    error="$error\nBackups failed at $(date +'%d/%m/%Y %H:%M:%S')"
-    echo -e $error ### | mail -s "Backups failed: No backup directory" "bethany@diamantegraphix.com"
-    rm $templog
+    hold="$hold\n\n$error"
+    hold="$hold\n\n# Backups failed at $(date +'%d/%m/%Y %H:%M:%S')"
+    echo -e $hold | mail -s "Backups Failed on $(date +'%Y-%m-%d'): No Backup Directory" -S from="diamanv1_backups" "$email"
     exit 0
   fi
 fi
+
+# Ensure newline following last site in list, else last site is not read
+lastline=$(tail -n 1 "$sites")
+###if [ "$lastline" != "" ]; then
+#  echo "" >> "$sites"
+#fi
 
 today="$(date +'_%Y-%m-%d')"
 
 # Create temporary log file
 templog="$backups_dir/temp$(date +'%d%m%Y%H%M%S').log"
-touch "$templog"
+touch "$templog" 2>/dev/null
 if [ $? == 0 ]; then
   echo -e $hold >> "$templog"
 else
-  echo "Backups $(date +'%Y-%m-%d'): Unable to create log file at $templog" ###| mail -s "Backups error: No log file" "bethany@diamantegraphix.com"
+  echo "Backups $(date +'%Y-%m-%d'): Unable to create log file at $templog" | mail -s "Backups Warning on $(date +'%Y-%m-%d'): No Log File" -S from="diamanv1_backups" "$email"
 fi 
+
+# If log directory does not exist, create it
+if [ ! -d "$backups_dir/$logs_dir" ]; then
+  mkdir "$backups_dir/$logs_dir" 2>>"$templog"
+  if [ $? == 0 ]; then 
+    echo "$backups_dir/$logs_dir directory created" >> "$templog"
+  else
+    echo "Unable to create directory $logs_dir/ in $backups_dir/" >> "$templog"  
+    errors=true
+  fi    
+fi
+
+# Log file named by year
+logfile="$backups_dir/$logs_dir/backups$(date +'_%Y').log"
 
 # Add 1 to number to backups to save, starts deleting on line following number to save
 i=$(($i+1))
@@ -60,7 +92,13 @@ i=$(($i+1))
 set -o pipefail
 
 # Get sites name and path (parent of site directory) from file
-while IFS="," read site path; do 
+while IFS="," read site path name; do 
+  if [ -z "$site" ]; then
+    break
+  fi
+  if [ -z "$name" ]; then
+    name="$site"
+  fi
 
   # Remove trailing slash from site directory path
   if [ "${path: -1}" = "/" ]; then 
@@ -69,7 +107,7 @@ while IFS="," read site path; do
 
   # Log site name
   echo >> "$templog"
-  echo "# $site #" >> "$templog"
+  echo "# $name #" >> "$templog"
 
   # Check if site directory exists
   if [ -d "$path/$site" ]; then
@@ -81,12 +119,12 @@ while IFS="," read site path; do
   fi
 
   # If backups folder for site does not exist, create it
-  if [ ! -d "$backups_dir/$site" ]; then
-    mkdir "$backups_dir/$site" 2>>"$templog"
+  if [ ! -d "$backups_dir/$name" ]; then
+    mkdir "$backups_dir/$name" 2>>"$templog"
     if [ $? == 0 ]; then 
-      echo "$backups_dir/$site directory created" >> "$templog"
+      echo "$backups_dir/$name directory created" >> "$templog"
     else
-      echo "Filesystem backup: FAILED; Unable to create directory $site/ in $backups_dir/" >> "$templog"  
+      echo "Filesystem backup: FAILED; Unable to create directory $name/ in $backups_dir/" >> "$templog"  
       errors=true
       continue
     fi    
@@ -96,8 +134,8 @@ while IFS="," read site path; do
   pushd "$path" 2>&1>/dev/null
 
   # Create gzipped tar archive of filesystem
-  zipfile="$backups_dir/$site/$site$today$(date +'%d%m%Y%H%M%S').tar.gz"
-  tar -zcf "$zipfile" $site 2>>"$templog"
+  zipfile="$name$today.tar.gz"
+  tar -zcf "$backups_dir/$name/$zipfile" $site 2>>"$templog"
 
   # Log results of directorty compression
   if [ $? == 0 ]; then
@@ -112,7 +150,7 @@ while IFS="," read site path; do
   popd 2>&1>/dev/null 
 
   # Delete all but 2 most recent file backups
-  ls -tp $backups_dir/$site/$site*.tar.gz 2>>"$templog" | tail -n +$i | xargs -I {} rm {} 2>>"$templog"
+  ls -tp $backups_dir/$name/$name*.tar.gz 2>>"$templog" | tail -n +$i | xargs -I {} rm {} 2>>"$templog"
   if [ $? != 0 ]; then
     echo "Error deleting outdated tar backups" >> "$templog"
   fi
@@ -152,8 +190,8 @@ while IFS="," read site path; do
     echo "Database located: $mysql_name" >> "$templog"
 
     # Database dump
-    sqlfile="$backups_dir/$site/$site$today$(date +'%d%m%Y%H%M%S').sql.gz"
-    mysqldump --user="$mysql_user" --password="$mysql_pass" --default-character-set=utf8 "$mysql_name" 2>>"$templog" | gzip > "$sqlfile" 2>>"$templog"
+    sqlfile="$name$today.sql.gz"
+    mysqldump --user="$mysql_user" --password="$mysql_pass" --default-character-set=utf8 "$mysql_name" 2>>"$templog" | gzip > "$backups_dir/$name/$sqlfile" 2>>"$templog"
 
     # Log database dump results
     if [ $? == 0 ]; then
@@ -165,7 +203,7 @@ while IFS="," read site path; do
     fi  
 
     # delete all but 2 most recent database backups
-    ls -tp $backups_dir/$site/$site*.sql.gz 2>>"$templog" | tail -n +$i | xargs -I {} rm {} 2>>"$templog"
+    ls -tp $backups_dir/$name/$name*.sql.gz 2>>"$templog" | tail -n +$i | xargs -I {} rm {} 2>>"$templog"
     if [ $? != 0 ]; then
       echo "Error deleting outdated sql backups" >> "$templog"
     fi
@@ -177,41 +215,27 @@ while IFS="," read site path; do
   fi
 done < "$sites" 2>> "$templog"
 
-# If file with list of sites does not exist, end program and email error message
-if [ $? != 0 ]; then
-  echo "Error: File not found: $sites" >> "$templog"
-  echo "# Backups failed at $(date +'%d/%m/%Y %H:%M:%S') #" >> "$templog"
-  cat "$templog" ###| mail -s "Backups failed: No site list file" "bethany@diamantegraphix.com"
-  cat "$templog" >> "$logfile"
-  rm "$templog"
-  exit 0
-fi
-
 # If an error occurred, note that in the log and in subject of email notification
 if [ $errors ]; then
   echo >> "$templog"
   echo "*** ERRORS OCCURRED DURING THIS BACKUP ***" >> "$templog"
-  echo >> "$templog"
-  subject="ERRORS OCCURRED: Backups complete on $(date +'%Y-%m-%d)"
+  subject="Backups Completed with Errors on $(date +'%Y-%m-%d')"
 else
-  subject="Backups complete on $(date +'%Y-%m-%d)"
+  subject="Backups Completed on $(date +'%Y-%m-%d')"
 fi
 
 # Log time backups were completed
+echo >> "$templog"
 echo "# Backups completed at $(date +'%Y-%m-%d %H:%M:%S') #" >> "$templog"
 
 # Email log for current backup
-#cat $templog | mail -s $subject "bethany@diamantegraphix.com"
-
-# If logfile does not exist, create it
-if [ ! -f "$logfile" ]; then
-  touch "$logfile"
-fi
+cat "$templog" | mail -s "$subject" -S from="diamanv1_backups" "$email"
 
 # Copy temp log to log file
 cat "$templog" >> "$logfile"
-echo >> $logfile
-echo >> $logfile
+echo >> "$logfile"
+echo >> "$logfile"
 
 rm "$templog"
 
+exit 0
